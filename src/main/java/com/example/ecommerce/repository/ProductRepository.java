@@ -17,7 +17,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query(value = "SELECT * FROM PRODUCTS WHERE price BETWEEN :minPrice AND :maxPrice", nativeQuery = true)
     List<Product> findByPriceRange(@Param("minPrice") BigDecimal minPrice, @Param("maxPrice") BigDecimal maxPrice);
 
-    @Query(value = "SELECT * FROM PRODUCTS WHERE name LIKE %:keyword% OR description LIKE %:keyword%", nativeQuery = true)
+    @Query(value = "SELECT * FROM PRODUCTS WHERE name LIKE CONCAT('%', :keyword, '%') OR description LIKE CONCAT('%', :keyword, '%')", nativeQuery = true)
     List<Product> searchByKeyword(@Param("keyword") String keyword);
 
     @Query(value = "SELECT * FROM PRODUCTS ORDER BY price ASC", nativeQuery = true)
