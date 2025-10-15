@@ -16,22 +16,24 @@ public class SecurityConfig {
     @Autowired
     private CustomAuthenticationProvider authenticationProvider;
 
+    @Autowired
+    private CustomAuthenticationFailureHandler authenticationFailureHandler;
+
     @Bean
-    @Order(1) // Higher priority
+    @Order(1)
     public SecurityFilterChain sellerSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .securityMatcher(AntPathRequestMatcher.antMatcher("/api/seller/**"))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/sellerlogin.html", "/css/**", "/js/**", "/images/**").permitAll()
+                        .requestMatchers("/api/otp/**").permitAll()
                         .requestMatchers("/api/seller/**", "/selleranalytics.html", "/sellerhomepage.html").hasRole("SELLER")
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
                         .loginPage("/sellerlogin.html")
                         .loginProcessingUrl("/api/seller/login")
-                        .defaultSuccessUrl("/sellerhomepage.html", true)
-                        .failureUrl("/sellerlogin.html?error=true")
+                        .failureHandler(authenticationFailureHandler)
                         .permitAll()
                 )
                 .authenticationProvider(authenticationProvider);
@@ -39,21 +41,20 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(2) // Second priority
+    @Order(2)
     public SecurityFilterChain adminSecurityFilterChain(HttpSecurity http) throws Exception {
         http
                 .securityMatcher(AntPathRequestMatcher.antMatcher("/api/admin/**"))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/adminlogin.html", "/css/**", "/js/**", "/images/**").permitAll()
-                        .requestMatchers("/api/admin/**", "adminanalytics.html", "adminselleranalytics.html","adminproductanalytics.html", "/adminseller.html").hasRole("ADMIN")
+                        .requestMatchers("/api/otp/**").permitAll()
+                        .requestMatchers("/api/admin/**", "/adminanalytics.html", "/adminselleranalytics.html", "/adminproductanalytics.html", "/adminseller.html").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
                         .loginPage("/adminlogin.html")
                         .loginProcessingUrl("/api/admin/login")
-                        .defaultSuccessUrl("/adminseller.html", true)
-                        .failureUrl("/adminlogin.html?error=true")
+                        .failureHandler(authenticationFailureHandler)
                         .permitAll()
                 )
                 .authenticationProvider(authenticationProvider);
@@ -61,31 +62,34 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(3) // Lowest priority - catches everything else
+    @Order(3)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Public pages accessible to all users
+                        // OTP and login pages - MUST be accessible without authentication
+                        .requestMatchers("/customerotp.html", "/sellerotp.html", "/adminotp.html",
+                                "/customerslogin.html", "/sellerlogin.html", "/adminlogin.html").permitAll()
+                        .requestMatchers("/api/otp/**").permitAll()
+
+                        // Public pages
                         .requestMatchers("/", "/ecom.html", "/css/**", "/js/**", "/images/**",
-                                "/customer.html", "/customerslogin.html", "/seller.html",
-                                "/sellerlogin.html", "/adminlogin.html",
+                                "/customer.html", "/seller.html",
                                 "/api/public/**", "/Aboutus.html", "/beauty.html", "/phones.html",
                                 "/books.html", "/shoes.html", "/furniture.html", "/toys.html",
                                 "/appliances.html").permitAll()
 
-                        // Customer-specific pages
+                        // Customer-specific pages (protected)
                         .requestMatchers("/api/customer/**", "/postlogin.html", "/fashion.html",
-                                "/product.html", "/productdetail.html", "/cart.html", "/orderconfirmation.html", "/payment.html",
+                                "/product.html", "/productdetail.html", "/cart.html",
+                                "/orderconfirmation.html", "/payment.html",
                                 "/aboutuslogin.html").hasRole("CUSTOMER")
 
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
-                        .loginPage("/customerslogin.html")
                         .loginProcessingUrl("/api/customer/login")
-                        .defaultSuccessUrl("/postlogin.html", true)
-                        .failureUrl("/customerslogin.html?error=true")
+                        .failureHandler(authenticationFailureHandler)
                         .permitAll()
                 )
                 .logout(logout -> logout

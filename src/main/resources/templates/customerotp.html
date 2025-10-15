@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer OTP Verification</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .otp-container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .otp-container h2 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .otp-container p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .email-display {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .otp-input-group {
+            margin-bottom: 20px;
+        }
+
+        .otp-input-group input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+            letter-spacing: 5px;
+            transition: border-color 0.3s;
+        }
+
+        .otp-input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .verify-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .verify-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .verify-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .success-message {
+            color: #27ae60;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .back-link {
+            margin-top: 20px;
+            display: block;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+<div class="otp-container">
+    <h2>Verify OTP</h2>
+    <p>We've sent a 6-digit code to your email</p>
+
+    <div class="email-display" id="emailDisplay"></div>
+
+    <form id="otpForm">
+        <div class="otp-input-group">
+            <input type="text" id="otpInput" maxlength="6" placeholder="Enter OTP" required pattern="[0-9]{6}">
+        </div>
+
+        <button type="submit" class="verify-btn" id="verifyBtn">Verify OTP</button>
+    </form>
+
+    <div class="error-message" id="errorMessage"></div>
+    <div class="success-message" id="successMessage"></div>
+
+    <a href="/customerslogin.html" class="back-link">← Back to Login</a>
+</div>
+
+<script>
+    // Get email and role from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const email = urlParams.get('email');
+    const role = urlParams.get('role');
+
+    // Display email
+    document.getElementById('emailDisplay').textContent = email;
+
+    // Handle form submission
+    document.getElementById('otpForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const otp = document.getElementById('otpInput').value;
+        const verifyBtn = document.getElementById('verifyBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+
+        // Hide previous messages
+        errorMessage.style.display = 'none';
+        successMessage.style.display = 'none';
+
+        // Disable button during verification
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = 'Verifying...';
+
+        try {
+            const response = await fetch('/api/otp/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `email=${encodeURIComponent(email)}&otp=${encodeURIComponent(otp)}&role=${encodeURIComponent(role)}`
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'success') {
+                successMessage.textContent = data.message;
+                successMessage.style.display = 'block';
+
+                // Redirect to dashboard after 1 second
+                setTimeout(() => {
+                    window.location.href = data.redirectUrl;
+                }, 1000);
+            } else {
+                errorMessage.textContent = data.message || 'Verification failed';
+                errorMessage.style.display = 'block';
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Verify OTP';
+            }
+        } catch (error) {
+            errorMessage.textContent = 'Network error. Please try again.';
+            errorMessage.style.display = 'block';
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = 'Verify OTP';
+        }
+    });
+
+    // Auto-focus on OTP input
+    document.getElementById('otpInput').focus();
+</script>
+</body>
+</html>
