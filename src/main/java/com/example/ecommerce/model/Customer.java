@@ -1,5 +1,6 @@
 package com.example.ecommerce.model;
 
+import com.example.ecommerce.security.AttributeEncryptor;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,11 +21,18 @@ public class Customer {
     private String email;
 
     private String name;
+    
+    @Convert(converter = AttributeEncryptor.class)
     private String houseNumber;
+    
+    @Convert(converter = AttributeEncryptor.class)
     private String street;
+    
     private String city;
     private String country;
     private String password;
+    
+    @Convert(converter = AttributeEncryptor.class)
     private String phone;
 
     @OneToOne(mappedBy = "customer", cascade = CascadeType.ALL)
