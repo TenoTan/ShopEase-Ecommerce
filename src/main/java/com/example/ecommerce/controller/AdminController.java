@@ -69,6 +69,7 @@ public class AdminController {
     }
 
 
+
     @GetMapping("/admin/selleranalytics.html")
     public String sellerAnalytics(@RequestParam("sellerId") Long sellerId, Model model) {
         // Fetch analytics for this seller

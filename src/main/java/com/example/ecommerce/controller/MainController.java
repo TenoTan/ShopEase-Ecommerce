@@ -1,7 +1,9 @@
 package com.example.ecommerce.controller;
 
 import com.example.ecommerce.model.*;
+import com.example.ecommerce.repository.AuditLogRepository;
 import com.example.ecommerce.service.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -24,7 +26,12 @@ import java.util.stream.Collectors;
 @Controller
 public class MainController {
 
+
+
     private static final Logger logger = LoggerFactory.getLogger(MainController.class);
+
+    @Autowired
+    private AuditLogRepository auditLogRepository;
 
     @Autowired
     private CategoryService categoryService;
@@ -713,7 +720,7 @@ public class MainController {
         @Transactional
         public String processPayment(@RequestParam String paymentMethod,
                                      Authentication authentication,
-                                     RedirectAttributes redirectAttributes) {
+                                     RedirectAttributes redirectAttributes, HttpServletRequest request) {
             try {
                 // 1. Get authenticated customer
                 String email = authentication.getName();
@@ -736,6 +743,16 @@ public class MainController {
                 order.setAmount(cartService.calculateCartTotal(cart.getCartId()));
                 order.setCustomer(customer);
                 order = orderService.saveOrder(order);
+                // Create audit log entry after order is saved
+                AuditLog log = new AuditLog();
+                log.setUserId(customer.getId());
+                log.setAction("ORDER_PLACED");
+                log.setTimestamp(LocalDateTime.now());
+                log.setDetails("Order ID: " + order.getOrderId() + " placed successfully");
+                // Add HttpServletRequest as method param
+                auditLogRepository.save(log);
+
+
 
                 // 4. Create OrderItems from CartItems
                 for (CartItem cartItem : cartItems) {
@@ -767,4 +784,5 @@ public class MainController {
                 return "redirect:/payment.html";
             }
         }
+
 }

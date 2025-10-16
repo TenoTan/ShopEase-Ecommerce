@@ -31,10 +31,17 @@
             <a th:href="@{/adminproductanalytics.html}" class="product-analytics-btn">
                 View Product Analytics
             </a>
+
+            <!-- Add here: Audit Logs button -->
+            <a th:href="@{/audit-logs}" class="audit-logs-btn">
+                View Audit Logs
+            </a>
+
             <a th:href="@{/adminanalytics.html}" class="view-btn">
                 View Overall Analytics
             </a>
         </div>
+
 
         <div th:if="${not #lists.isEmpty(sellers)}">
             <table id="sellerTable">
