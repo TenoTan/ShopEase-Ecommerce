@@ -9,6 +9,9 @@ import java.util.Optional;
 
 @Repository
 public interface AdminRepository extends JpaRepository<Admin, Long> {
+    // in AdminRepository.java
+    Optional<Admin> findByEmail(String email);
+
 
     @Query(value = "SELECT * FROM ADMINS WHERE id = :id", nativeQuery = true)
     Optional<Admin> findAdminById(@Param("id") Long id);

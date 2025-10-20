@@ -1,6 +1,13 @@
 package com.example.ecommerce.config;
 
-import com.example.ecommerce.model.OtpDetails;
+import com.example.ecommerce.model.AuditLog;
+import com.example.ecommerce.model.Customer;
+import com.example.ecommerce.model.Admin;
+import com.example.ecommerce.model.Seller;
+import com.example.ecommerce.service.AdminService;
+import com.example.ecommerce.service.CustomerService;
+import com.example.ecommerce.service.SellerService;
+import com.example.ecommerce.repository.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +20,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,8 +32,19 @@ public class OtpVerificationController {
     @Autowired
     private OtpCacheService otpCacheService;
 
-    private final SecurityContextRepository securityContextRepository =
-            new HttpSessionSecurityContextRepository();
+    @Autowired
+    private CustomerService customerService;
+
+    @Autowired
+    private SellerService sellerService;
+
+    @Autowired
+    private AdminService adminService;
+
+    @Autowired
+    private AuditLogRepository auditLogRepository;
+
+    private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
     @PostMapping("/verify")
     public ResponseEntity<?> verifyOtp(@RequestParam String email,
@@ -33,7 +52,8 @@ public class OtpVerificationController {
                                        @RequestParam String role,
                                        HttpServletRequest request,
                                        HttpServletResponse response) {
-        OtpDetails otpDetails = otpCacheService.getOtpDetails(email);
+        // Validate OTP
+        var otpDetails = otpCacheService.getOtpDetails(email);
 
         if (otpDetails == null || otpDetails.isExpired()) {
             Map<String, String> errorResponse = new HashMap<>();
@@ -49,25 +69,32 @@ public class OtpVerificationController {
             return ResponseEntity.badRequest().body(errorResponse);
         }
 
-        // OTP is valid - remove from cache
+        // Remove OTP from cache
         otpCacheService.removeOtp(email);
 
         // Create authentication token
-        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                email,
-                null,
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-        );
+        UsernamePasswordAuthenticationToken authToken =
+                new UsernamePasswordAuthenticationToken(email, null,
+                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase())));
 
-        // Create new security context
+        // Create security context with authentication and save it
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authToken);
         SecurityContextHolder.setContext(context);
-
-        // CRITICAL: Save the context to session (Spring Security 6.x requirement)
         securityContextRepository.saveContext(context, request, response);
 
-        // Return success response
+        // Save audit log for successful OTP login
+        Long userId = fetchUserIdByEmail(email, role);
+
+        AuditLog log = new AuditLog();
+        log.setUserId(userId);
+        log.setAction("LOGIN");
+        log.setTimestamp(LocalDateTime.now());
+        log.setDetails("User logged in after OTP verification: " + email);
+
+        auditLogRepository.save(log);
+
+        // Build success response
         Map<String, String> successResponse = new HashMap<>();
         successResponse.put("status", "success");
         successResponse.put("message", "OTP verified successfully");
@@ -86,6 +113,25 @@ public class OtpVerificationController {
                 return "/postlogin.html";
             default:
                 return "/ecom.html";
+        }
+    }
+
+    private Long fetchUserIdByEmail(String email, String role) {
+        switch (role.toUpperCase()) {
+            case "CUSTOMER":
+                return customerService.getCustomerByEmail(email)
+                        .map(Customer::getId)
+                        .orElse(null);
+            case "SELLER":
+                return sellerService.getSellerByEmail(email)
+                        .map(Seller::getId)
+                        .orElse(null);
+            case "ADMIN":
+                return adminService.getAdminByEmail(email)
+                        .map(Admin::getId)
+                        .orElse(null);
+            default:
+                return null;
         }
     }
 }

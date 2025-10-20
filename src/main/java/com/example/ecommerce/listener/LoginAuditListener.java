@@ -22,6 +22,8 @@ public class LoginAuditListener {
 
     @EventListener
     public void handleAuthenticationSuccess(AuthenticationSuccessEvent event) {
+        System.out.println("Audit listener triggered for: " );
+
         String email = event.getAuthentication().getName();
         Customer customer = customerService.getCustomerByEmail(email).orElse(null);
 
@@ -32,6 +34,12 @@ public class LoginAuditListener {
         log.setDetails("Customer logged in: " + email);
         log.setIpAddress(null); // IP logging is advanced
 
-        auditLogRepository.save(log);
+        try {
+            auditLogRepository.save(log);
+            System.out.println("Audit log saved.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 }
