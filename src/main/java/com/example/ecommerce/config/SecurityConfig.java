@@ -48,7 +48,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/otp/**").permitAll()
-                        .requestMatchers("/api/admin/**", "/adminanalytics.html", "/adminselleranalytics.html", "/adminproductanalytics.html", "/adminseller.html").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**", "/adminanalytics.html", "/adminselleranalytics.html", "/adminproductanalytics.html", "/adminseller.html","/adminsecuritydashboard").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form

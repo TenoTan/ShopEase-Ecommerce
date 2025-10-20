@@ -32,10 +32,17 @@
                 View Product Analytics
             </a>
 
-            <!-- Add here: Audit Logs button -->
-            <a th:href="@{/audit-logs}" class="audit-logs-btn">
+            <a th:href="@{/adminsecuritydashboard}"
+               style="display: inline-block; background-color: #1d3557; color: white; padding: 12px 20px; margin: 10px 0; border-radius: 5px; text-decoration: none; font-weight: bold; font-size: 16px; transition: background-color 0.3s ease;">
+                View Admin Security Dashboard
+            </a>
+
+            <a th:href="@{/audit-logs}"
+               style="display: inline-block; background-color: #1d3557; color: white; padding: 12px 20px; margin: 10px 0; border-radius: 5px; text-decoration: none; font-weight: bold; font-size: 16px; transition: background-color 0.3s ease;">
                 View Audit Logs
             </a>
+
+
 
             <a th:href="@{/adminanalytics.html}" class="view-btn">
                 View Overall Analytics
