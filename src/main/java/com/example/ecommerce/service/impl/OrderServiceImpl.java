@@ -77,6 +77,7 @@ public class OrderServiceImpl implements OrderService {
         orderRepository.deleteById(id);
     }
 
+    @Override
     public Map<Long, Long> getOrderCountByCustomer() {
         return orderRepository.countOrdersByCustomer()
                 .stream()
@@ -84,5 +85,13 @@ public class OrderServiceImpl implements OrderService {
                         row -> ((Number) row[0]).longValue(),
                         row -> ((Number) row[1]).longValue()
                 ));
+    }
+
+    // NEW METHOD - Add this
+    @Override
+    public List<Order> getOrdersWithDetails(Long customerId) {
+        return orderRepository.findAllWithCustomer().stream()
+                .filter(order -> order.getCustomer().getId().equals(customerId))
+                .collect(Collectors.toList());
     }
 }

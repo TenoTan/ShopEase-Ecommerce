@@ -2,8 +2,10 @@ package com.example.ecommerce.controller;
 
 import com.example.ecommerce.model.*;
 import com.example.ecommerce.service.*;
+import com.example.ecommerce.dto.OrderDTO;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
@@ -50,6 +52,12 @@ public class MainController {
     @Autowired
     private RatingService ratingService;
 
+    @Autowired
+    private OrderItemService orderItemService;
+
+    @Autowired
+    private PaymentService paymentService;
+
     @GetMapping({"/", "/ecom.html"})
     public String home() {
         return "ecom";
@@ -67,7 +75,6 @@ public class MainController {
 
     @GetMapping("/customer.html")
     public String customerSignup(Model model) {
-        // Add any attributes needed for the registration form
         return "customer";
     }
 
@@ -117,7 +124,6 @@ public class MainController {
     ) {
         List<Product> products;
 
-        // Filter by category or search keyword
         if (categoryId != null) {
             products = productService.getProductsByCategoryId(categoryId);
         } else if (keyword != null && !keyword.trim().isEmpty()) {
@@ -126,7 +132,6 @@ public class MainController {
             products = productService.getAllProducts();
         }
 
-        // Price range filtering
         if (priceRange != null && !priceRange.isEmpty()) {
             String[] range = priceRange.split("-");
             if (range.length == 2) {
@@ -144,7 +149,6 @@ public class MainController {
             }
         }
 
-        // Rating calculations
         Map<Long, ProductRatingInfo> productRatings = new HashMap<>();
         for (Product product : products) {
             Double avgRating = ratingService.getAverageRatingForProduct(product.getProductId());
@@ -153,7 +157,6 @@ public class MainController {
             productRatings.put(product.getProductId(), new ProductRatingInfo(ratingValue, ratingCount));
         }
 
-        // Minimum rating filter
         if (minRating != null) {
             products = products.stream()
                     .filter(p -> {
@@ -163,12 +166,10 @@ public class MainController {
                     .collect(Collectors.toList());
         }
 
-        // Add attributes to model
         model.addAttribute("products", products);
         model.addAttribute("productRatings", productRatings);
         model.addAttribute("categories", categoryService.getAllCategories());
 
-        // Maintain filter state
         if (categoryId != null) model.addAttribute("selectedCategoryId", categoryId);
         if (minRating != null) model.addAttribute("minRating", minRating);
         if (priceRange != null) model.addAttribute("priceRange", priceRange);
@@ -177,8 +178,6 @@ public class MainController {
         return "product";
     }
 
-
-    // Helper class to store rating information
     private static class ProductRatingInfo {
         private final int avgRating;
         private final int count;
@@ -199,20 +198,14 @@ public class MainController {
 
     @GetMapping("/cart.html")
     public String cart(Model model) {
-        // Get the currently authenticated user
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
-
-        // Find the customer by email
         Optional<Customer> customerOpt = customerService.getCustomerByEmail(email);
 
         if (customerOpt.isPresent()) {
             Customer customer = customerOpt.get();
-
-            // Get the customer's cart
             Optional<Cart> cartOpt = cartService.getCartByCustomerId(customer.getId());
 
-            // If cart doesn't exist, create a new one
             Cart cart;
             if (cartOpt.isEmpty()) {
                 cart = new Cart();
@@ -222,21 +215,16 @@ public class MainController {
                 cart = cartOpt.get();
             }
 
-            // Get cart items
             List<CartItem> cartItems = cartItemService.getCartItemsByCartId(cart.getCartId());
-
-            // Calculate total price
             BigDecimal totalPrice = cartService.calculateCartTotal(cart.getCartId());
             if (totalPrice == null) {
                 totalPrice = BigDecimal.ZERO;
             }
 
-            // Add cart data to the model
             model.addAttribute("cart", cart);
             model.addAttribute("cartItems", cartItems);
             model.addAttribute("totalPrice", totalPrice);
         } else {
-            // Handle case where customer is not found
             model.addAttribute("error", "Customer not found. Please log in again.");
         }
 
@@ -250,16 +238,13 @@ public class MainController {
         try {
             logger.info("Adding product ID {} to cart", productId);
 
-            // Get the authenticated user
             String email = authentication.getName();
             Customer customer = customerService.getCustomerByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Customer not found"));
 
-            // Get the product
             Product product = productService.getProductById(productId)
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            // Get or create customer's cart
             Optional<Cart> cartOpt = cartService.getCartByCustomerId(customer.getId());
             Cart cart;
             if (cartOpt.isEmpty()) {
@@ -270,31 +255,26 @@ public class MainController {
                 cart = cartOpt.get();
             }
 
-            // Check if product already exists in cart
             List<CartItem> cartItems = cartItemService.getCartItemsByCartId(cart.getCartId());
             boolean productExists = false;
 
             for (CartItem item : cartItems) {
                 if (item.getProduct().getProductId().equals(productId)) {
-                    // Update quantity if product already in cart
                     int newQuantity = item.getQuantity() + 1;
                     BigDecimal newTotalPrice = product.getPrice().multiply(new BigDecimal(newQuantity));
 
-                    // Create new CartItem with updated values
                     CartItem updatedItem = new CartItem();
                     updatedItem.setCart(cart);
                     updatedItem.setProduct(product);
                     updatedItem.setQuantity(newQuantity);
                     updatedItem.setTotalPrice(newTotalPrice);
 
-                    // Save updated item
                     cartItemService.saveCartItem(updatedItem);
                     productExists = true;
                     break;
                 }
             }
 
-            // Add new cart item if product not already in cart
             if (!productExists) {
                 CartItem newItem = new CartItem();
                 newItem.setCart(cart);
@@ -319,16 +299,13 @@ public class MainController {
                                  Authentication authentication,
                                  RedirectAttributes redirectAttributes) {
         try {
-            // Get the authenticated user
             String email = authentication.getName();
             Customer customer = customerService.getCustomerByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Customer not found"));
 
-            // Get the customer's cart
             Cart cart = cartService.getCartByCustomerId(customer.getId())
                     .orElseThrow(() -> new RuntimeException("Cart not found"));
 
-            // Remove the item from the cart
             cartService.removeItemFromCart(cart.getCartId(), productId);
 
             redirectAttributes.addFlashAttribute("success", "Item removed from cart successfully!");
@@ -344,30 +321,23 @@ public class MainController {
                              Authentication authentication,
                              RedirectAttributes redirectAttributes) {
         try {
-            // Get the authenticated user
             String email = authentication.getName();
             Customer customer = customerService.getCustomerByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Customer not found"));
 
-            // Get the customer's cart
             Cart cart = cartService.getCartByCustomerId(customer.getId())
                     .orElseThrow(() -> new RuntimeException("Cart not found"));
 
-            // Get the product
             Product product = productService.getProductById(productId)
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            // Find the cart item to update
             List<CartItem> cartItems = cartItemService.getCartItemsByCartId(cart.getCartId());
 
             for (CartItem item : cartItems) {
                 if (item.getProduct().getProductId().equals(productId)) {
-                    // Update quantity
                     if (quantity <= 0) {
-                        // If quantity is 0 or negative, remove the item
                         cartService.removeItemFromCart(cart.getCartId(), productId);
                     } else {
-                        // Otherwise update the quantity
                         item.setQuantity(quantity);
                         item.setTotalPrice(product.getPrice().multiply(new BigDecimal(quantity)));
                         cartItemService.saveCartItem(item);
@@ -390,17 +360,11 @@ public class MainController {
         return "fashion";
     }
 
-    // Seller-specific mappings
-
     @GetMapping("/seller/products/add")
     public String addProductForm(Model model) {
-        // Add a new empty product to the model
         model.addAttribute("product", new Product());
-
-        // Add categories for dropdown
         List<Category> categories = categoryService.getAllCategories();
         model.addAttribute("categories", categories);
-
         return "selleradd";
     }
 
@@ -410,19 +374,16 @@ public class MainController {
                              Authentication authentication,
                              RedirectAttributes redirectAttributes) {
         try {
-            // Get the current seller
             String email = authentication.getName();
             Seller seller = sellerService.getSellerByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Seller not found"));
 
-            // Set the seller and category for the product
             product.setSeller(seller);
 
             Category category = categoryService.getCategoryById(categoryId)
                     .orElseThrow(() -> new RuntimeException("Category not found"));
             product.setCategory(category);
 
-            // Save the product
             productService.saveProduct(product);
 
             redirectAttributes.addFlashAttribute("success", "Product added successfully!");
@@ -436,21 +397,17 @@ public class MainController {
 
     @GetMapping("/seller/products/edit/{id}")
     public String editProductForm(@PathVariable Long id, Model model, Authentication authentication) {
-        // Get the current seller
         String email = authentication.getName();
         Seller seller = sellerService.getSellerByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Seller not found"));
 
-        // Get the product
         Product product = productService.getProductById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
 
-        // Check if the product belongs to the current seller
         if (!product.getSeller().getId().equals(seller.getId())) {
             throw new RuntimeException("You don't have permission to edit this product");
         }
 
-        // Add product and categories to the model
         model.addAttribute("product", product);
         model.addAttribute("categories", categoryService.getAllCategories());
 
@@ -464,33 +421,27 @@ public class MainController {
                                 Authentication authentication,
                                 RedirectAttributes redirectAttributes) {
         try {
-            // Get the current seller
             String email = authentication.getName();
             Seller seller = sellerService.getSellerByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Seller not found"));
 
-            // Get the existing product
             Product existingProduct = productService.getProductById(id)
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            // Check if the product belongs to the current seller
             if (!existingProduct.getSeller().getId().equals(seller.getId())) {
                 throw new RuntimeException("You don't have permission to edit this product");
             }
 
-            // Update the product fields
             existingProduct.setName(product.getName());
             existingProduct.setDescription(product.getDescription());
             existingProduct.setPrice(product.getPrice());
             existingProduct.setStockQuantity(product.getStockQuantity());
             existingProduct.setImageUrl(product.getImageUrl());
 
-            // Update category if changed
             Category category = categoryService.getCategoryById(categoryId)
                     .orElseThrow(() -> new RuntimeException("Category not found"));
             existingProduct.setCategory(category);
 
-            // Save the updated product
             productService.saveProduct(existingProduct);
 
             redirectAttributes.addFlashAttribute("success", "Product updated successfully!");
@@ -511,24 +462,21 @@ public class MainController {
             @RequestParam("imageUrl") String imageUrl,
             RedirectAttributes redirectAttributes) {
         try {
-            // Fetch the product by ID
             Product product = productService.getProductById(productId)
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            // Update the product fields
             product.setName(name);
             product.setDescription(description);
             product.setPrice(price);
             product.setImageUrl(imageUrl);
 
-            // Save the updated product
             productService.saveProduct(product);
 
             redirectAttributes.addFlashAttribute("success", "Product updated successfully!");
-            return "redirect:/sellerhomepage.html"; // or wherever you want to redirect after update
+            return "redirect:/sellerhomepage.html";
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "Failed to update product: " + e.getMessage());
-            return "redirect:/seller/editProduct?productId=" + productId; // or back to edit page
+            return "redirect:/seller/editProduct?productId=" + productId;
         }
     }
 
@@ -542,27 +490,22 @@ public class MainController {
         return "sellerorder";
     }
 
-
     @PostMapping("/seller/products/delete")
     public String deleteProduct(@RequestParam Long productId,
                                 Authentication authentication,
                                 RedirectAttributes redirectAttributes) {
         try {
-            // Get the current seller
             String email = authentication.getName();
             Seller seller = sellerService.getSellerByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Seller not found"));
 
-            // Get the product
             Product product = productService.getProductById(productId)
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            // Check if the product belongs to the current seller
             if (!product.getSeller().getId().equals(seller.getId())) {
                 throw new RuntimeException("You don't have permission to delete this product");
             }
 
-            // Delete the product
             productService.deleteProduct(productId);
 
             redirectAttributes.addFlashAttribute("success", "Product deleted successfully!");
@@ -575,35 +518,26 @@ public class MainController {
 
     @GetMapping("/seller/analytics")
     public String sellerAnalytics(Model model, Authentication authentication) {
-        // Get the current seller
         String email = authentication.getName();
         Seller seller = sellerService.getSellerByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Seller not found"));
 
-        // Add seller to the model
         model.addAttribute("seller", seller);
-
-        // Here you would add analytics data to the model
-        // This is a placeholder for actual analytics implementation
 
         return "selleranalytics";
     }
 
     @GetMapping("/seller/sales")
     public String sellerSales(Model model, Authentication authentication) {
-        // Get the current seller
         String email = authentication.getName();
         Seller seller = sellerService.getSellerByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Seller not found"));
 
-        // Add seller to the model
         model.addAttribute("seller", seller);
-
-        // Here you would add sales data to the model
-        // This is a placeholder for actual sales implementation
 
         return "sellersales";
     }
+
     @GetMapping("/productdetail.html")
     public String productDetail(@RequestParam Long id, Model model, Authentication authentication) {
         try {
@@ -611,26 +545,21 @@ public class MainController {
                     .orElseThrow(() -> new RuntimeException("Product not found"));
             model.addAttribute("product", product);
 
-            // Calculate average rating
             Double avgRating = ratingService.getAverageRatingForProduct(id);
             int averageRating = avgRating != null ? (int) Math.round(avgRating) : 0;
             model.addAttribute("averageRating", averageRating);
 
-            // Get all ratings for the product
             List<Rating> ratings = ratingService.getRatingsByProductId(id);
             model.addAttribute("ratingCount", ratings != null ? ratings.size() : 0);
 
-            // If user is logged in
             if (authentication != null && authentication.isAuthenticated()) {
                 String email = authentication.getName();
                 Customer customer = customerService.getCustomerByEmail(email).orElse(null);
 
                 if (customer != null) {
-                    // Check if the user has purchased the product
                     boolean hasPurchased = orderService.hasCustomerPurchasedProduct(customer.getId(), id);
                     model.addAttribute("hasPurchased", hasPurchased);
 
-                    // Check if the user has already rated the product
                     Optional<Rating> existingRating = ratingService.getRatingByCustomerAndProduct(customer.getId(), id);
                     model.addAttribute("existingRating", existingRating.orElse(null));
                 }
@@ -645,34 +574,28 @@ public class MainController {
         }
     }
 
-
     @PostMapping("/submitRating")
     public String submitRating(@RequestParam Long productId,
                                @RequestParam Integer ratingValue,
                                Authentication authentication,
                                RedirectAttributes redirectAttributes) {
         try {
-            // Get the authenticated customer
             String email = authentication.getName();
             Customer customer = customerService.getCustomerByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Customer not found"));
 
-            // Verify customer has purchased the product
             if (!orderService.hasCustomerPurchasedProduct(customer.getId(), productId)) {
                 throw new RuntimeException("You must purchase this product before rating it");
             }
 
-            // Check if customer has already rated this product
             Optional<Rating> existingRating = ratingService.getRatingByCustomerAndProduct(customer.getId(), productId);
             if (existingRating.isPresent()) {
                 throw new RuntimeException("You have already rated this product");
             }
 
-            // Get the product
             Product product = productService.getProductById(productId)
                     .orElseThrow(() -> new RuntimeException("Product not found"));
 
-            // Create and save the rating
             Rating rating = new Rating();
             rating.setCustomer(customer);
             rating.setProduct(product);
@@ -690,81 +613,170 @@ public class MainController {
 
     @GetMapping("/orderconfirmation.html")
     public String showOrderConfirmation(@RequestParam("orderId") Long orderId, Model model) {
-        // Fetch the order
         Order order = orderService.getOrderById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found with ID: " + orderId));
-        // Fetch the payment
         Payment payment = paymentService.getPaymentByOrderId(orderId)
                 .orElseThrow(() -> new RuntimeException("Payment not found for order ID: " + orderId));
-        // Add to model
         model.addAttribute("order", order);
         model.addAttribute("payment", payment);
-        return "orderconfirmation"; // Name of your Thymeleaf template
+        return "orderconfirmation";
     }
 
     @GetMapping("/checkout")
     public String checkoutPage() {
-        return "payment"; // This will render payment.html from your templates
+        return "payment";
     }
-        @Autowired private OrderItemService orderItemService;
-        @Autowired private PaymentService paymentService;
 
-        @PostMapping("/payment/submit")
-        @Transactional
-        public String processPayment(@RequestParam String paymentMethod,
-                                     Authentication authentication,
-                                     RedirectAttributes redirectAttributes) {
-            try {
-                // 1. Get authenticated customer
-                String email = authentication.getName();
-                Customer customer = customerService.getCustomerByEmail(email)
-                        .orElseThrow(() -> new RuntimeException("Customer not found"));
+    @PostMapping("/payment/submit")
+    @Transactional
+    public String processPayment(@RequestParam String paymentMethod,
+                                 @RequestParam(required = false) String cardNumber,
+                                 @RequestParam(required = false) String expiryDate,
+                                 @RequestParam(required = false) String cvv,
+                                 @RequestParam(required = false) String cardholderName,
+                                 @RequestParam(required = false) String upiId,
+                                 @RequestParam(required = false) String bankName,
+                                 @RequestParam(required = false) String walletNumber,
+                                 Authentication authentication,
+                                 RedirectAttributes redirectAttributes) {
+        try {
+            String email = authentication.getName();
+            Customer customer = customerService.getCustomerByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Customer not found"));
 
-                // 2. Get cart and validate
-                Cart cart = cartService.getCartByCustomerId(customer.getId())
-                        .orElseThrow(() -> new RuntimeException("Cart not found"));
-                List<CartItem> cartItems = cartItemService.getCartItemsByCartId(cart.getCartId());
+            Cart cart = cartService.getCartByCustomerId(customer.getId())
+                    .orElseThrow(() -> new RuntimeException("Cart not found"));
+            List<CartItem> cartItems = cartItemService.getCartItemsByCartId(cart.getCartId());
 
-                if (cartItems.isEmpty()) {
-                    redirectAttributes.addFlashAttribute("error", "Your cart is empty");
-                    return "redirect:/cart.html";
-                }
-
-                // 3. Create and save Order
-                Order order = new Order();
-                order.setTime(LocalDateTime.now());
-                order.setAmount(cartService.calculateCartTotal(cart.getCartId()));
-                order.setCustomer(customer);
-                order = orderService.saveOrder(order);
-
-                // 4. Create OrderItems from CartItems
-                for (CartItem cartItem : cartItems) {
-                    OrderItem orderItem = new OrderItem();
-                    orderItem.setOrder(order);
-                    orderItem.setProduct(cartItem.getProduct());
-                    orderItem.setQuantity(cartItem.getQuantity());
-                    orderItem.setTotalPrice(cartItem.getTotalPrice());
-                    orderItemService.saveOrderItem(orderItem);
-                }
-
-                // 5. Create and save Payment
-                Payment payment = new Payment();
-                payment.setOrder(order); // order is the Order entity you just created
-                payment.setPaymentMethod(paymentMethod);
-                payment.setAmount(order.getAmount());
-                paymentService.savePayment(payment);
-
-                // 6. Clear cart items
-                cartItemService.deleteByCartId(cart.getCartId());
-
-                redirectAttributes.addFlashAttribute("success",
-                        "Order placed successfully! Order ID: " + order.getOrderId());
-                return "redirect:/orderconfirmation.html?orderId=" + order.getOrderId();
-
-            } catch (Exception e) {
-                redirectAttributes.addFlashAttribute("error",
-                        "Payment failed: " + e.getMessage());
-                return "redirect:/payment.html";
+            if (cartItems.isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "Your cart is empty");
+                return "redirect:/cart.html";
             }
+
+            Order order = new Order();
+            order.setTime(LocalDateTime.now());
+            order.setAmount(cartService.calculateCartTotal(cart.getCartId()));
+            order.setCustomer(customer);
+            order = orderService.saveOrder(order);
+
+            for (CartItem cartItem : cartItems) {
+                OrderItem orderItem = new OrderItem();
+                orderItem.setOrder(order);
+                orderItem.setProduct(cartItem.getProduct());
+                orderItem.setQuantity(cartItem.getQuantity());
+                orderItem.setTotalPrice(cartItem.getTotalPrice());
+                orderItemService.saveOrderItem(orderItem);
+            }
+
+            Payment payment = new Payment();
+            payment.setOrder(order);
+            payment.setPaymentMethod(paymentMethod);
+            payment.setAmount(order.getAmount());
+
+            // Capture payment details based on method
+            String paymentDetails = "";
+            String lastFour = "";
+
+            if ("Credit Card".equals(paymentMethod) || "Debit Card".equals(paymentMethod)) {
+                if (cardNumber != null && cardNumber.length() >= 4) {
+                    lastFour = cardNumber.substring(cardNumber.length() - 4);
+                    paymentDetails = "Card: **** **** **** " + lastFour + " | Exp: " + expiryDate + " | Name: " + cardholderName;
+                }
+            } else if ("UPI".equals(paymentMethod)) {
+                paymentDetails = "UPI ID: " + (upiId != null ? upiId : "N/A");
+            } else if ("Net Banking".equals(paymentMethod)) {
+                paymentDetails = "Bank: " + (bankName != null ? bankName : "N/A");
+            } else if ("Wallet / Gift Card".equals(paymentMethod)) {
+                if (walletNumber != null && walletNumber.length() >= 4) {
+                    lastFour = walletNumber.substring(walletNumber.length() - 4);
+                    paymentDetails = "Wallet/Card: ****" + lastFour;
+                }
+            } else if ("Cash on Delivery".equals(paymentMethod)) {
+                paymentDetails = "Cash on Delivery";
+            }
+
+            payment.setCardNumberLastFour(lastFour.isEmpty() ? null : lastFour);
+            payment.setPaymentDetails(paymentDetails);
+
+            paymentService.savePayment(payment);
+
+            cartItemService.deleteByCartId(cart.getCartId());
+
+            redirectAttributes.addFlashAttribute("success",
+                    "Order placed successfully! Order ID: " + order.getOrderId());
+            return "redirect:/orderconfirmation.html?orderId=" + order.getOrderId();
+
+        } catch (Exception e) {
+            logger.error("Payment processing error: {}", e.getMessage(), e);
+            redirectAttributes.addFlashAttribute("error",
+                    "Payment failed: " + e.getMessage());
+            return "redirect:/payment.html";
         }
+    }
+
+
+    @GetMapping("/myorders")
+    public String myOrders() {
+        return "myorders";
+    }
+
+    @GetMapping("/api/customer/orders")
+    @ResponseBody
+    public ResponseEntity<List<Map<String, Object>>> getCustomerOrders() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+            if (auth == null || !auth.isAuthenticated()) {
+                return ResponseEntity.status(401).build();
+            }
+
+            String email = auth.getName();
+            Customer customer = customerService.getCustomerByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Customer not found"));
+
+            List<Order> orders = orderService.getOrdersByCustomerId(customer.getId());
+
+            List<Map<String, Object>> orderDTOs = orders.stream()
+                    .map(order -> {
+                        Map<String, Object> dto = new HashMap<>();
+                        dto.put("id", order.getOrderId());
+                        dto.put("orderDate", order.getTime());
+                        dto.put("status", "Pending");
+                        dto.put("amount", order.getAmount());
+
+                        if (order.getPayment() != null) {
+                            Map<String, Object> paymentInfo = new HashMap<>();
+                            paymentInfo.put("paymentMethod", order.getPayment().getPaymentMethod());
+                            paymentInfo.put("amount", order.getPayment().getAmount());
+                            dto.put("payment", paymentInfo);
+                        }
+
+                        if (order.getOrderItems() != null) {
+                            List<Map<String, Object>> items = order.getOrderItems().stream()
+                                    .map(item -> {
+                                        Map<String, Object> itemMap = new HashMap<>();
+                                        if (item.getProduct() != null) {
+                                            itemMap.put("productName", item.getProduct().getName());
+                                            itemMap.put("price", item.getProduct().getPrice());
+                                            itemMap.put("imageUrl", item.getProduct().getImageUrl()); // ADDED
+                                        }
+                                        itemMap.put("quantity", item.getQuantity());
+                                        itemMap.put("totalPrice", item.getTotalPrice());
+                                        return itemMap;
+                                    })
+                                    .collect(Collectors.toList());
+                            dto.put("items", items);
+                        }
+
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(orderDTOs);
+
+        } catch (Exception e) {
+            logger.error("Error fetching customer orders: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).build();
+        }
+    }
 }

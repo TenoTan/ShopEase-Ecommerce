@@ -4,8 +4,48 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Payment Page</title>
-  <!-- Corrected CSS reference for Spring Boot + Thymeleaf -->
   <link rel="stylesheet" th:href="@{/css/payment.css}" />
+  <style>
+    .payment-details {
+      display: none;
+      margin-top: 20px;
+      padding: 20px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+    }
+    .payment-details.active {
+      display: block;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #fff;
+      font-weight: 500;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.9);
+      font-size: 14px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .info-text {
+      color: #fff;
+      padding: 10px;
+      background: rgba(76, 175, 80, 0.2);
+      border-radius: 5px;
+      border-left: 3px solid #4CAF50;
+    }
+  </style>
 </head>
 <body>
 <div class="background">
@@ -23,6 +63,68 @@
       </div>
       <input type="hidden" name="paymentMethod" id="paymentMethod" required />
 
+      <!-- Card Payment Details -->
+      <div id="cardDetails" class="payment-details">
+        <div class="form-group">
+          <label>Card Number</label>
+          <input type="text" name="cardNumber" id="cardNumber" placeholder="1234 5678 9012 3456"
+                 pattern="[0-9]{13,19}" maxlength="19">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Expiry Date</label>
+            <input type="text" name="expiryDate" id="expiryDate" placeholder="MM/YY"
+                   pattern="(0[1-9]|1[0-2])\/[0-9]{2}" maxlength="5">
+          </div>
+          <div class="form-group">
+            <label>CVV</label>
+            <input type="password" name="cvv" id="cvv" placeholder="123"
+                   pattern="[0-9]{3,4}" maxlength="4">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Cardholder Name</label>
+          <input type="text" name="cardholderName" id="cardholderName" placeholder="John Doe">
+        </div>
+      </div>
+
+      <!-- UPI Details -->
+      <div id="upiDetails" class="payment-details">
+        <div class="form-group">
+          <label>UPI ID</label>
+          <input type="text" name="upiId" id="upiId" placeholder="yourname@upi">
+        </div>
+      </div>
+
+      <!-- Net Banking Details -->
+      <div id="netbankingDetails" class="payment-details">
+        <div class="form-group">
+          <label>Select Bank</label>
+          <select name="bankName" id="bankName">
+            <option value="">Choose your bank</option>
+            <option value="SBI">State Bank of India</option>
+            <option value="HDFC">HDFC Bank</option>
+            <option value="ICICI">ICICI Bank</option>
+            <option value="Axis">Axis Bank</option>
+            <option value="PNB">Punjab National Bank</option>
+            <option value="Kotak">Kotak Mahindra Bank</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- COD Details -->
+      <div id="codDetails" class="payment-details">
+        <p class="info-text">✅ Your order will be delivered to your address. Pay when you receive it.</p>
+      </div>
+
+      <!-- Wallet Details -->
+      <div id="walletDetails" class="payment-details">
+        <div class="form-group">
+          <label>Wallet / Gift Card Number</label>
+          <input type="text" name="walletNumber" id="walletNumber" placeholder="Enter wallet or card number">
+        </div>
+      </div>
+
       <!-- Make Payment Button -->
       <div class="make-payment-container">
         <button type="submit" class="make-payment-btn">Make Payment</button>
@@ -30,20 +132,64 @@
     </form>
   </div>
 </div>
+
 <script>
-  // Highlight selected payment method and set hidden input
   const paymentBtns = document.querySelectorAll('.payment-btn');
   const paymentMethodInput = document.getElementById('paymentMethod');
 
+  const detailSections = {
+    'Credit Card': 'cardDetails',
+    'Debit Card': 'cardDetails',
+    'UPI': 'upiDetails',
+    'Net Banking': 'netbankingDetails',
+    'Cash on Delivery': 'codDetails',
+    'Wallet / Gift Card': 'walletDetails'
+  };
+
   paymentBtns.forEach(btn => {
     btn.addEventListener('click', function() {
+      // Update button selection
       paymentBtns.forEach(b => b.classList.remove('selected'));
       this.classList.add('selected');
-      paymentMethodInput.value = this.getAttribute('data-method');
+
+      const method = this.getAttribute('data-method');
+      paymentMethodInput.value = method;
+
+      // Hide all detail sections
+      document.querySelectorAll('.payment-details').forEach(section => {
+        section.classList.remove('active');
+      });
+
+      // Clear all inputs
+      document.querySelectorAll('.payment-details input, .payment-details select').forEach(el => {
+        el.removeAttribute('required');
+        if (el.type !== 'hidden') el.value = '';
+      });
+
+      // Show relevant section and make fields required
+      const sectionId = detailSections[method];
+      if (sectionId) {
+        const section = document.getElementById(sectionId);
+        section.classList.add('active');
+
+        // Make fields required based on payment method
+        if (method === 'Credit Card' || method === 'Debit Card') {
+          document.getElementById('cardNumber').required = true;
+          document.getElementById('expiryDate').required = true;
+          document.getElementById('cvv').required = true;
+          document.getElementById('cardholderName').required = true;
+        } else if (method === 'UPI') {
+          document.getElementById('upiId').required = true;
+        } else if (method === 'Net Banking') {
+          document.getElementById('bankName').required = true;
+        } else if (method === 'Wallet / Gift Card') {
+          document.getElementById('walletNumber').required = true;
+        }
+      }
     });
   });
 
-  // Prevent form submission if no method is selected
+  // Form validation
   document.getElementById('paymentForm').addEventListener('submit', function(e) {
     if (!paymentMethodInput.value) {
       alert('Please select a payment method.');

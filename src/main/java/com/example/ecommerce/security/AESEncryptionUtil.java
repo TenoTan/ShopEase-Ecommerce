@@ -1,6 +1,5 @@
 package com.example.ecommerce.security;
 
-import org.springframework.stereotype.Component;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
@@ -11,17 +10,11 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.util.Base64;
 
 /**
  * Utility class for AES encryption and decryption of sensitive data
  * Uses AES-GCM mode for authenticated encryption with associated data (AEAD)
  */
-@Component
 public class AESEncryptionUtil {
 
     private static final int GCM_IV_LENGTH = 12;

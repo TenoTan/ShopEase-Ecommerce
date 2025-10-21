@@ -17,9 +17,9 @@ public interface OrderService {
     List<Object[]> getMonthlySales(Integer year);
     void deleteOrder(Long id);
     BigDecimal getTotalSalesForAllSellers();
-
-    // New method to check if a customer has purchased a product
     boolean hasCustomerPurchasedProduct(Long customerId, Long productId);
-
     Map<Long, Long> getOrderCountByCustomer();
+
+    // NEW METHOD - Add this
+    List<Order> getOrdersWithDetails(Long customerId);
 }

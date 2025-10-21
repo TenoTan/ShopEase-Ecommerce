@@ -24,27 +24,35 @@ public class CustomerController {
     @PostMapping("/register")
     public String registerCustomer(Customer customer, String confirmPassword,
                                    RedirectAttributes redirectAttributes, Model model) {
-        // Validate input
+
+        // Strong password validation
+        String passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$";
+        if (!customer.getPassword().matches(passwordPattern)) {
+            model.addAttribute("error",
+                    "Password must be at least 8 characters and contain: " +
+                            "1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (@$!%*?&)");
+            return "customer";
+        }
+
+        // Password match validation
         if (!customer.getPassword().equals(confirmPassword)) {
             model.addAttribute("error", "Passwords do not match");
             return "customer";
         }
 
-        // Check if email already exists
+        // Email already exists check
         if (customerService.getCustomerByEmail(customer.getEmail()).isPresent()) {
             model.addAttribute("error", "Email already registered");
             return "customer";
         }
 
-        // Create a cart for the customer
+        // Create cart and save customer
         Cart cart = new Cart();
         cart.setCustomer(customer);
         customer.setCart(cart);
 
-        // Save the customer
         customerService.saveCustomer(customer);
 
-        // Add success message and redirect to homepage
         redirectAttributes.addFlashAttribute("registrationSuccess",
                 "Registration successful! You can now login.");
         return "redirect:/ecom.html";
