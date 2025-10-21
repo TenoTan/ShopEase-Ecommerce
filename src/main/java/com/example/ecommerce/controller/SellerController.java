@@ -1,7 +1,10 @@
 package com.example.ecommerce.controller;
 
+import com.example.ecommerce.model.AuditLog;
 import com.example.ecommerce.model.Seller;
+import com.example.ecommerce.repository.AuditLogRepository;
 import com.example.ecommerce.service.SellerService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -16,6 +19,9 @@ import java.math.BigDecimal;
 @RequestMapping("/api/public/sellers")
 public class SellerController {
     private final SellerService sellerService;
+    @Autowired
+    private AuditLogRepository auditLogRepository;
+
 
     @Autowired
     public SellerController(SellerService sellerService) {
@@ -26,7 +32,7 @@ public class SellerController {
     public String registerSeller(Seller seller,
                                  @RequestParam("confirmPassword") String confirmPassword,
                                  RedirectAttributes redirectAttributes,
-                                 Model model) {
+                                 Model model, HttpServletRequest request) {
         // Validate input
         if (!seller.getPassword().equals(confirmPassword)) {
             model.addAttribute("error", "Passwords do not match");
@@ -48,6 +54,14 @@ public class SellerController {
         try {
             // Save the seller
             sellerService.saveSeller(seller);
+            AuditLog log = new AuditLog();
+            log.setUserId(seller.getId());
+            log.setAction("SELLER_SIGNUP");
+            log.setTimestamp(java.time.LocalDateTime.now());
+            log.setDetails("Seller signed up with email: " + seller.getEmail());
+            log.setIpAddress(request.getRemoteAddr());
+            auditLogRepository.save(log);
+
 
             // Add success message and redirect to homepage
             redirectAttributes.addFlashAttribute("registrationSuccess",

@@ -1,8 +1,9 @@
 package com.example.ecommerce.controller;
 
 import com.example.ecommerce.model.*;
+import com.example.ecommerce.repository.AuditLogRepository;
 import com.example.ecommerce.service.*;
-import com.example.ecommerce.dto.OrderDTO;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,9 @@ import java.util.stream.Collectors;
 public class MainController {
 
     private static final Logger logger = LoggerFactory.getLogger(MainController.class);
+
+    @Autowired
+    private AuditLogRepository auditLogRepository;
 
     @Autowired
     private CategoryService categoryService;
@@ -638,7 +642,8 @@ public class MainController {
                                  @RequestParam(required = false) String bankName,
                                  @RequestParam(required = false) String walletNumber,
                                  Authentication authentication,
-                                 RedirectAttributes redirectAttributes) {
+                                 RedirectAttributes redirectAttributes,
+                                 HttpServletRequest request) {
         try {
             String email = authentication.getName();
             Customer customer = customerService.getCustomerByEmail(email)
@@ -659,6 +664,15 @@ public class MainController {
             order.setCustomer(customer);
             order = orderService.saveOrder(order);
 
+            // Audit log (THEIR FEATURE)
+            AuditLog log = new AuditLog();
+            log.setUserId(customer.getId());
+            log.setAction("ORDER_PLACED");
+            log.setTimestamp(LocalDateTime.now());
+            log.setDetails("Order ID: " + order.getOrderId() + " placed successfully");
+            log.setIpAddress(request.getRemoteAddr());
+            auditLogRepository.save(log);
+
             for (CartItem cartItem : cartItems) {
                 OrderItem orderItem = new OrderItem();
                 orderItem.setOrder(order);
@@ -673,7 +687,7 @@ public class MainController {
             payment.setPaymentMethod(paymentMethod);
             payment.setAmount(order.getAmount());
 
-            // Capture payment details based on method
+            // Capture payment details (YOUR FEATURE)
             String paymentDetails = "";
             String lastFour = "";
 
@@ -713,7 +727,6 @@ public class MainController {
             return "redirect:/payment.html";
         }
     }
-
 
     @GetMapping("/myorders")
     public String myOrders() {
@@ -758,7 +771,7 @@ public class MainController {
                                         if (item.getProduct() != null) {
                                             itemMap.put("productName", item.getProduct().getName());
                                             itemMap.put("price", item.getProduct().getPrice());
-                                            itemMap.put("imageUrl", item.getProduct().getImageUrl()); // ADDED
+                                            itemMap.put("imageUrl", item.getProduct().getImageUrl());
                                         }
                                         itemMap.put("quantity", item.getQuantity());
                                         itemMap.put("totalPrice", item.getTotalPrice());

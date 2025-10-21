@@ -1,8 +1,11 @@
 package com.example.ecommerce.controller;
 
+import com.example.ecommerce.model.AuditLog;
 import com.example.ecommerce.model.Cart;
 import com.example.ecommerce.model.Customer;
+import com.example.ecommerce.repository.AuditLogRepository;
 import com.example.ecommerce.service.CustomerService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -10,11 +13,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.LocalDateTime;
+
 @Controller
 @RequestMapping("/api/public/customers")
 public class CustomerController {
 
     private final CustomerService customerService;
+    @Autowired
+    private AuditLogRepository auditLogRepository;
 
     @Autowired
     public CustomerController(CustomerService customerService) {
@@ -23,9 +30,9 @@ public class CustomerController {
 
     @PostMapping("/register")
     public String registerCustomer(Customer customer, String confirmPassword,
-                                   RedirectAttributes redirectAttributes, Model model) {
+                                   RedirectAttributes redirectAttributes, Model model, HttpServletRequest request) {
 
-        // Strong password validation
+        // Strong password validation (YOUR FEATURE)
         String passwordPattern = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$";
         if (!customer.getPassword().matches(passwordPattern)) {
             model.addAttribute("error",
@@ -52,6 +59,15 @@ public class CustomerController {
         customer.setCart(cart);
 
         customerService.saveCustomer(customer);
+
+        // Audit log (THEIR FEATURE)
+        AuditLog log = new AuditLog();
+        log.setUserId(customer.getId());
+        log.setAction("CUSTOMER_SIGNUP");
+        log.setTimestamp(LocalDateTime.now());
+        log.setDetails("Customer signed up with email: " + customer.getEmail());
+        log.setIpAddress(request.getRemoteAddr());
+        auditLogRepository.save(log);
 
         redirectAttributes.addFlashAttribute("registrationSuccess",
                 "Registration successful! You can now login.");
