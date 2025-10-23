@@ -31,7 +31,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/otp/**").permitAll()
-                        .requestMatchers("/api/seller/**", "/selleranalytics.html", "/sellerhomepage.html").hasRole("SELLER")
+                        .requestMatchers("/api/seller/**").hasRole("SELLER")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
@@ -54,7 +54,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/otp/**").permitAll()
-                        .requestMatchers("/api/admin/**", "/adminanalytics.html", "/adminselleranalytics.html", "/adminproductanalytics.html", "/adminseller.html","/adminsecuritydashboard").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
@@ -75,18 +75,37 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/customerotp.html", "/sellerotp.html", "/adminotp.html",
-                                "/customerslogin.html", "/sellerlogin.html", "/adminlogin.html").permitAll()
+                        // OTP pages - Allow all
+                        .requestMatchers("/customerotp.html", "/sellerotp.html", "/adminotp.html").permitAll()
+
+                        // Login pages - Allow all
+                        .requestMatchers("/customerslogin.html", "/sellerlogin.html", "/adminlogin.html").permitAll()
+
+                        // OTP API - Allow all
                         .requestMatchers("/api/otp/**").permitAll()
+
+                        // Public pages - Allow all
                         .requestMatchers("/", "/ecom.html", "/css/**", "/js/**", "/images/**",
                                 "/customer.html", "/seller.html",
                                 "/api/public/**", "/Aboutus.html", "/beauty.html", "/phones.html",
                                 "/books.html", "/shoes.html", "/furniture.html", "/toys.html",
                                 "/appliances.html").permitAll()
+
+                        // ADMIN-ONLY PAGES - Must come before customer pages
+                        .requestMatchers("/adminanalytics.html", "/adminselleranalytics.html",
+                                "/adminproductanalytics.html", "/adminseller.html",
+                                "/adminsecuritydashboard", "/adminsecuritydashboard.html").hasRole("ADMIN")
+
+                        // SELLER-ONLY PAGES - Must come before customer pages
+                        .requestMatchers("/selleranalytics.html", "/sellerhomepage.html").hasRole("SELLER")
+
+                        // CUSTOMER-ONLY PAGES
                         .requestMatchers("/api/customer/**", "/postlogin.html", "/fashion.html",
                                 "/product.html", "/productdetail.html", "/cart.html",
                                 "/orderconfirmation.html", "/payment.html",
                                 "/myorders.html", "/myorders", "/aboutuslogin.html").hasRole("CUSTOMER")
+
+                        // All other requests require authentication
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
@@ -99,6 +118,9 @@ public class SecurityConfig {
                 )
                 .logout(logout -> logout
                         .logoutUrl("/api/logout")
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
+                        .clearAuthentication(true)
                         .logoutSuccessUrl("/ecom.html")
                         .permitAll()
                 );

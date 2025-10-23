@@ -5,6 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Customer Login</title>
     <link rel="stylesheet" type="text/css" th:href="@{/css/login.css}">
+    <style>
+        .error-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .error-session-limit {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffc107;
+        }
+        .error-session-expired {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
+        }
+        .error-invalid {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        .error-message strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+    </style>
 </head>
 <body>
 
@@ -20,9 +50,26 @@
     <h3>Login</h3>
     <br>
 
-    <!-- Add error message display -->
-    <div th:if="${param.error}" style="color: red; margin-bottom: 15px; text-align: center;">
-        Invalid credentials. Please try again.
+    <!-- Session Limit Error (Already logged in on another device) -->
+    <div th:if="${param.error != null and param.error[0] == 'sessionLimit'}"
+         class="error-message error-session-limit">
+        <strong>🚫 Already Logged In</strong>
+        <p style="margin: 5px 0;">You are already logged in on another device or browser.</p>
+        <p style="margin: 5px 0;">Please logout from the other session first, or wait 15 minutes for it to expire.</p>
+    </div>
+
+    <!-- Session Expired Error -->
+    <div th:if="${param.sessionExpired}"
+         class="error-message error-session-expired">
+        <strong>⏱️ Session Expired</strong>
+        <p style="margin: 5px 0;">Your session has expired due to inactivity. Please login again.</p>
+    </div>
+
+    <!-- Invalid Credentials Error -->
+    <div th:if="${param.error != null and param.error[0] == 'true'}"
+         class="error-message error-invalid">
+        <strong>❌ Invalid Credentials</strong>
+        <p style="margin: 5px 0;">The email or password you entered is incorrect. Please try again.</p>
     </div>
 
     <form th:action="@{/api/customer/login}" method="post">
